@@ -30,6 +30,11 @@ void mousewheel_handler(SDL_Event * event);
 uint32_t keycode_to_ctrl_key(SDL_Keycode sdl_key);
 void keyboard_handler(SDL_Event * event);
 
+bool sdl_dis_drv_is_monitor_1(lv_disp_drv_t * disp_drv);
+bool sdl_dis_drv_is_monitor_2(lv_disp_drv_t * disp_drv);
+uint32_t monitor_1_win_id();
+uint32_t monitor_2_win_id();
+
 #endif /* USE_SDL || USE_SDL_GPU */
 
 #ifdef __cplusplus

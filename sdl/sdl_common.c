@@ -16,6 +16,15 @@
 #endif
 
 /**********************
+ *      TYPEDEFS
+ **********************/
+typedef struct {
+    bool left_button_down;
+    int16_t last_x;
+    int16_t last_y;
+} mouse_state_t;
+
+/**********************
  *  STATIC PROTOTYPES
  **********************/
 
@@ -26,9 +35,11 @@
 
 volatile bool sdl_quit_qry = false;
 
-static bool left_button_down = false;
-static int16_t last_x = 0;
-static int16_t last_y = 0;
+static mouse_state_t mouse_state_1 = {false, 0, 0};
+
+#if SDL_DUAL_DISPLAY
+static mouse_state_t mouse_state_2 = {false, 0, 0};
+#endif
 
 static int16_t wheel_diff = 0;
 static lv_indev_state_t wheel_state = LV_INDEV_STATE_RELEASED;
@@ -45,12 +56,27 @@ static char buf[KEYBOARD_BUFFER_SIZE];
  */
 void sdl_mouse_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 {
-    (void) indev_drv;      /*Unused*/
+    lv_disp_t *disp = indev_drv->disp;
 
-    /*Store the collected data*/
-    data->point.x = last_x;
-    data->point.y = last_y;
-    data->state = left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    mouse_state_t * mouse_state;
+    
+    if (disp == NULL) { // NULL is the default display
+        mouse_state = &mouse_state_1;
+    }
+    if (sdl_dis_drv_is_monitor_1(disp->driver)) {
+        mouse_state = &mouse_state_1;
+    }
+    #if SDL_DUAL_DISPLAY
+    else if (sdl_dis_drv_is_monitor_2(disp->driver)) {
+        mouse_state = &mouse_state_2;
+    }
+    #endif
+
+    if (mouse_state == NULL) return;
+
+    data->point.x = mouse_state->last_x;
+    data->point.y = mouse_state->last_y;
+    data->state = mouse_state->left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 }
 
 
@@ -113,39 +139,74 @@ int quit_filter(void * userdata, SDL_Event * event)
 
 void mouse_handler(SDL_Event * event)
 {
+    uint32_t win_id = UINT32_MAX;
+    switch(event->type) {
+        case SDL_MOUSEBUTTONUP:
+        case SDL_MOUSEBUTTONDOWN:
+            win_id = event->button.windowID;
+            break;
+        case SDL_MOUSEMOTION:
+            win_id = event->motion.windowID;
+            break;
+        case SDL_FINGERUP:
+        case SDL_FINGERDOWN:
+        case SDL_FINGERMOTION:
+#if SDL_VERSION_ATLEAST(2,0,12)
+            win_id = event->tfinger.windowID;
+#endif
+            break;
+        case SDL_WINDOWEVENT:
+            win_id = event->window.windowID;
+            break;
+        default:
+            return;
+    }
+
+    mouse_state_t * mouse_state = NULL;
+
+    if (win_id == monitor_1_win_id()) {
+        mouse_state = &mouse_state_1;
+    }
+    #if SDL_DUAL_DISPLAY
+    else if (win_id == monitor_2_win_id()) {
+        mouse_state = &mouse_state_2;
+    }
+    #endif
+
+    if (mouse_state == NULL) return;
+
     switch(event->type) {
         case SDL_MOUSEBUTTONUP:
             if(event->button.button == SDL_BUTTON_LEFT)
-                left_button_down = false;
+                mouse_state->left_button_down = false;
             break;
         case SDL_MOUSEBUTTONDOWN:
             if(event->button.button == SDL_BUTTON_LEFT) {
-                left_button_down = true;
-                last_x = event->motion.x / SDL_ZOOM;
-                last_y = event->motion.y / SDL_ZOOM;
+                mouse_state->left_button_down = true;
+                mouse_state->last_x = event->motion.x / SDL_ZOOM;
+                mouse_state->last_y = event->motion.y / SDL_ZOOM;
             }
             break;
         case SDL_MOUSEMOTION:
-            last_x = event->motion.x / SDL_ZOOM;
-            last_y = event->motion.y / SDL_ZOOM;
+            mouse_state->last_x = event->motion.x / SDL_ZOOM;
+            mouse_state->last_y = event->motion.y / SDL_ZOOM;
             break;
 
         case SDL_FINGERUP:
-            left_button_down = false;
-            last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
-            last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
+            mouse_state->left_button_down = false;
+            mouse_state->last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
+            mouse_state->last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
             break;
         case SDL_FINGERDOWN:
-            left_button_down = true;
-            last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
-            last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
+            mouse_state->left_button_down = true;
+            mouse_state->last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
+            mouse_state->last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
             break;
         case SDL_FINGERMOTION:
-            last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
-            last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
+            mouse_state->last_x = SDL_HOR_RES * event->tfinger.x / SDL_ZOOM;
+            mouse_state->last_y = SDL_VER_RES * event->tfinger.y / SDL_ZOOM;
             break;
     }
-
 }
 
 

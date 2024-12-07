@@ -188,6 +188,15 @@ void sdl_display_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 
 }
 
+bool sdl_dis_drv_is_monitor_1(lv_disp_drv_t * disp_drv)
+{
+    return disp_drv->flush_cb == sdl_display_flush;
+}
+
+uint32_t monitor_1_win_id(void)
+{
+    return SDL_GetWindowID(monitor.window);
+}
 
 #if SDL_DUAL_DISPLAY
 
@@ -247,6 +256,17 @@ void sdl_display_flush2(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_col
     lv_disp_flush_ready(disp_drv);
 #endif
 }
+
+bool sdl_dis_drv_is_monitor_2(lv_disp_drv_t * disp_drv)
+{
+    return disp_drv->flush_cb == sdl_display_flush2;
+}
+
+uint32_t monitor_2_win_id(void)
+{
+    return SDL_GetWindowID(monitor2.window);
+}
+
 #endif
 
 /**********************
